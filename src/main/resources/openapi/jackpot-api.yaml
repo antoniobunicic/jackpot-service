@@ -1,0 +1,190 @@
+openapi: 3.0.3
+info:
+  title: Jackpot Service API
+  description: |
+    Backend service for managing jackpot bet contributions and rewards with Kafka integration.
+    This service processes bets asynchronously, manages jackpot pools with different contribution
+    strategies, and evaluates jackpot wins based on configurable reward strategies.
+  contact:
+    name: Jackpot Service Team
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local environment
+
+tags:
+  - name: Bets
+    description: APIs for submitting bets and evaluating jackpot rewards
+
+paths:
+  /api/bets:
+    post:
+      tags:
+        - Bets
+      summary: Submit a bet
+      description: |
+        Publishes a bet to Kafka topic 'jackpot-bets' for asynchronous processing.
+        The bet will be consumed by the Kafka consumer, which will contribute to the matching jackpot pool.
+      operationId: submitBet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BetRequest'
+      responses:
+        '200':
+          description: Bet successfully published to Kafka
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to publish bet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/bets/{betId}/evaluate-reward:
+    post:
+      tags:
+        - Bets
+      summary: Evaluate jackpot reward for a bet
+      description: |
+        Checks if a bet wins the jackpot reward based on the jackpot's reward strategy.
+        Fixed reward strategy uses a constant win probability, while variable reward strategy
+        increases probability as the jackpot pool grows. If the bet wins, the jackpot pool is
+        reset to its initial value and a reward record is created.
+      operationId: evaluateReward
+      parameters:
+        - name: betId
+          in: path
+          required: true
+          description: Unique identifier of the bet to evaluate
+          schema:
+            type: string
+            minLength: 1
+          example: bet-12345
+      responses:
+        '200':
+          description: Reward evaluation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewardEvaluationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Bet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    BetRequest:
+      type: object
+      required:
+        - betId
+        - userId
+        - jackpotId
+        - betAmount
+      properties:
+        betId:
+          type: string
+          description: Unique identifier for the bet
+          example: bet-12345
+          minLength: 1
+        userId:
+          type: string
+          description: Unique identifier for the user placing the bet
+          example: user-001
+          minLength: 1
+        jackpotId:
+          type: integer
+          format: int64
+          description: Identifier of the jackpot to contribute to (1=Fixed Classic, 2=Progressive Mega, 3=Daily)
+          example: 1
+          minimum: 1
+        betAmount:
+          type: number
+          format: decimal
+          description: Amount of the bet
+          example: 100.00
+          minimum: 0.01
+
+    BetResponse:
+      type: object
+      properties:
+        betId:
+          type: string
+          description: Unique identifier for the bet
+          example: bet-12345
+        status:
+          type: string
+          description: Status of the bet submission
+          example: PUBLISHED
+          enum:
+            - PUBLISHED
+            - FAILED
+        message:
+          type: string
+          description: Descriptive message about the bet submission
+          example: Bet successfully published to Kafka
+
+    RewardEvaluationResponse:
+      type: object
+      properties:
+        betId:
+          type: string
+          description: Unique identifier of the evaluated bet
+          example: bet-12345
+        won:
+          type: boolean
+          description: Indicates whether the bet won the jackpot
+          example: true
+        rewardAmount:
+          type: number
+          format: decimal
+          description: Amount of the jackpot reward (0 if not won)
+          example: 15750.00
+        message:
+          type: string
+          description: Message describing the outcome
+          example: Congratulations! You won the jackpot!
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+        status:
+          type: integer
+          description: HTTP status code
+          example: 400
+        error:
+          type: string
+          description: Error type
+          example: Bad Request
+        message:
+          type: string
+          description: Error message
+          example: Validation failed
+        path:
+          type: string
+          description: Request path
+          example: /api/bets
