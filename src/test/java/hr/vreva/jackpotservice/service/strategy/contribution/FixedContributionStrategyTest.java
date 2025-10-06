@@ -1,7 +1,8 @@
 package hr.vreva.jackpotservice.service.strategy.contribution;
 
 import hr.vreva.jackpotservice.persistence.entity.JackpotEntity;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
 
@@ -11,63 +12,23 @@ class FixedContributionStrategyTest {
 
     private final FixedContributionStrategy strategy = new FixedContributionStrategy();
 
-    @Test
-    void shouldCalculateFixedContribution() {
+    @ParameterizedTest
+    @CsvSource({
+        "100.00, 5.0, 5.00",
+        "50.00, 2.5, 1.25",
+        "100.00, 3.33, 3.33",
+        "100.00, 0.0, 0.00"
+    })
+    void shouldCalculateFixedContribution(String betAmount, double contributionPercentage, String expectedContribution) {
         // Given
         JackpotEntity jackpot = JackpotEntity.builder()
-                .contributionPercentage(5.0)
+                .contributionPercentage(contributionPercentage)
                 .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
 
         // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
+        BigDecimal contribution = strategy.calculateContribution(new BigDecimal(betAmount), jackpot);
 
         // Then
-        assertEquals(new BigDecimal("5.00"), contribution);
-    }
-
-    @Test
-    void shouldCalculateContributionWithDecimalPercentage() {
-        // Given
-        JackpotEntity jackpot = JackpotEntity.builder()
-                .contributionPercentage(2.5)
-                .build();
-        BigDecimal betAmount = new BigDecimal("50.00");
-
-        // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
-
-        // Then
-        assertEquals(new BigDecimal("1.25"), contribution);
-    }
-
-    @Test
-    void shouldRoundToTwoDecimalPlaces() {
-        // Given
-        JackpotEntity jackpot = JackpotEntity.builder()
-                .contributionPercentage(3.33)
-                .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
-
-        // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
-
-        // Then
-        assertEquals(new BigDecimal("3.33"), contribution);
-    }
-
-    @Test
-    void shouldHandleZeroPercentage() {
-        // Given
-        JackpotEntity jackpot = JackpotEntity.builder()
-                .contributionPercentage(0.0)
-                .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
-
-        // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
-
-        // Then
-        assertEquals(new BigDecimal("0.00"), contribution);
+        assertEquals(new BigDecimal(expectedContribution), contribution);
     }
 }

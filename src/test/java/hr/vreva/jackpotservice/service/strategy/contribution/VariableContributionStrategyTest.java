@@ -1,7 +1,8 @@
 package hr.vreva.jackpotservice.service.strategy.contribution;
 
 import hr.vreva.jackpotservice.persistence.entity.JackpotEntity;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
 
@@ -11,75 +12,33 @@ class VariableContributionStrategyTest {
 
     private final VariableContributionStrategy strategy = new VariableContributionStrategy();
 
-    @Test
-    void shouldCalculateMaximumContributionWhenPoolAtInitialValue() {
-        // Given - pool at initial value (ratio = 1.0)
+    @ParameterizedTest
+    @CsvSource({
+        "10000.00, 10000.00, 100.00, 10.0, 5.0, 5.00",   // pool at initial value (ratio = 1.0)
+        "10000.00, 20000.00, 100.00, 10.0, 5.0, 0.00",   // pool doubled (ratio = 2.0)
+        "10000.00, 30000.00, 100.00, 10.0, 5.0, 0.00",   // pool tripled (ratio = 3.0) - should not go negative
+        "10000.00, 5000.00, 100.00, 10.0, 5.0, 7.50"     // pool at 50% (ratio = 0.5)
+    })
+    void shouldCalculateVariableContribution(
+            String initialPoolValue,
+            String currentPoolValue,
+            String betAmount,
+            double contributionPercentage,
+            double contributionDecayRate,
+            String expectedContribution
+    ) {
+        // Given
         JackpotEntity jackpot = JackpotEntity.builder()
-                .initialPoolValue(new BigDecimal("10000.00"))
-                .currentPoolValue(new BigDecimal("10000.00"))
-                .contributionPercentage(10.0)
-                .contributionDecayRate(5.0)
+                .initialPoolValue(new BigDecimal(initialPoolValue))
+                .currentPoolValue(new BigDecimal(currentPoolValue))
+                .contributionPercentage(contributionPercentage)
+                .contributionDecayRate(contributionDecayRate)
                 .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
 
         // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
+        BigDecimal contribution = strategy.calculateContribution(new BigDecimal(betAmount), jackpot);
 
-        // Then - 10% - (1.0 * 5%) = 5% of 100 = 5.00
-        assertEquals(new BigDecimal("5.00"), contribution);
-    }
-
-    @Test
-    void shouldCalculateContributionWithDecay() {
-        // Given - pool doubled (ratio = 2.0)
-        JackpotEntity jackpot = JackpotEntity.builder()
-                .initialPoolValue(new BigDecimal("10000.00"))
-                .currentPoolValue(new BigDecimal("20000.00"))
-                .contributionPercentage(10.0)
-                .contributionDecayRate(5.0)
-                .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
-
-        // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
-
-        // Then - 10% - (2.0 * 5%) = 0% of 100 = 0.00
-        assertEquals(new BigDecimal("0.00"), contribution);
-    }
-
-    @Test
-    void shouldNotGoNegative() {
-        // Given - pool tripled (ratio = 3.0)
-        JackpotEntity jackpot = JackpotEntity.builder()
-                .initialPoolValue(new BigDecimal("10000.00"))
-                .currentPoolValue(new BigDecimal("30000.00"))
-                .contributionPercentage(10.0)
-                .contributionDecayRate(5.0)
-                .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
-
-        // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
-
-        // Then - should be 0, not negative
-        assertEquals(new BigDecimal("0.00"), contribution);
-    }
-
-    @Test
-    void shouldCalculateContributionAtHalfPool() {
-        // Given - pool at 50% (ratio = 0.5)
-        JackpotEntity jackpot = JackpotEntity.builder()
-                .initialPoolValue(new BigDecimal("10000.00"))
-                .currentPoolValue(new BigDecimal("5000.00"))
-                .contributionPercentage(10.0)
-                .contributionDecayRate(5.0)
-                .build();
-        BigDecimal betAmount = new BigDecimal("100.00");
-
-        // When
-        BigDecimal contribution = strategy.calculateContribution(betAmount, jackpot);
-
-        // Then - 10% - (0.5 * 5%) = 7.5% of 100 = 7.50
-        assertEquals(new BigDecimal("7.50"), contribution);
+        // Then
+        assertEquals(new BigDecimal(expectedContribution), contribution);
     }
 }

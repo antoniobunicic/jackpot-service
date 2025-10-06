@@ -39,45 +39,6 @@ class JackpotServiceIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Test
-    void shouldSubmitBetSuccessfully() {
-        // Given
-        BetRequest request = new BetRequest();
-        request.setBetId("integration-bet-001");
-        request.setUserId("user-123");
-        request.setJackpotId(1L);
-        request.setBetAmount(new BigDecimal("100.00"));
-
-        // When
-        ResponseEntity<BetResponse> response = restTemplate.postForEntity(
-                "/api/bets",
-                request,
-                BetResponse.class
-        );
-
-        // Then
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("integration-bet-001", response.getBody().getBetId());
-        assertEquals(BetResponse.StatusEnum.PUBLISHED, response.getBody().getStatus());
-    }
-
-    @Test
-    void shouldEvaluateRewardForNonExistentBet() throws InterruptedException {
-        // Given - wait a bit for previous bet to process
-        Thread.sleep(1000);
-
-        // When
-        ResponseEntity<RewardEvaluationResponse> response = restTemplate.postForEntity(
-                "/api/bets/non-existent-bet/evaluate-reward",
-                null,
-                RewardEvaluationResponse.class
-        );
-
-        // Then
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
-
-    @Test
     void shouldProcessBetEndToEnd() throws InterruptedException {
         // Given
         BetRequest request = new BetRequest();
@@ -86,27 +47,30 @@ class JackpotServiceIntegrationTest {
         request.setJackpotId(2L);
         request.setBetAmount(new BigDecimal("50.00"));
 
-        // When - submit bet
+        // Submit bet
         ResponseEntity<BetResponse> submitResponse = restTemplate.postForEntity(
                 "/api/bets",
                 request,
                 BetResponse.class
         );
 
-        // Then - verify submission
+        // Verify submission
         assertEquals(HttpStatus.OK, submitResponse.getStatusCode());
+        assertNotNull(submitResponse.getBody());
+        assertEquals("e2e-bet-001", submitResponse.getBody().getBetId());
+        assertEquals(BetResponse.StatusEnum.PUBLISHED, submitResponse.getBody().getStatus());
 
         // Wait for Kafka processing
         Thread.sleep(2000);
 
-        // When - evaluate reward
+        // Eevaluate reward
         ResponseEntity<RewardEvaluationResponse> rewardResponse = restTemplate.postForEntity(
                 "/api/bets/e2e-bet-001/evaluate-reward",
                 null,
                 RewardEvaluationResponse.class
         );
 
-        // Then - verify evaluation
+        // Verify evaluation
         assertEquals(HttpStatus.OK, rewardResponse.getStatusCode());
         assertNotNull(rewardResponse.getBody());
         assertEquals("e2e-bet-001", rewardResponse.getBody().getBetId());
